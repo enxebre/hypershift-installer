@@ -28,3 +28,27 @@ verify-gofmt:
 
 .PHONY: verify
 verify: verify-gofmt verify-bindata
+
+# ---- CAPI
+
+TOOLS_DIR := hack/tools
+TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
+BIN_DIR := bin
+CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
+
+$(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
+
+.PHONY: generate-go-capi
+generate-capi: $(CONTROLLER_GEN)
+	$(CONTROLLER_GEN) \
+		object:headerFile=./hack/boilerplate.generatego.txt \
+		paths=./pkg/capi/api/...
+	$(CONTROLLER_GEN) \
+		paths=./pkg/capi/api/... \
+		crd:crdVersions=v1 \
+		output:crd:dir=./pkg/capi/crds/
+
+.PHONY: build-capi
+build-capi:
+	go build -mod=vendor -o bin/capiManager github.com/openshift-hive/hypershift-installer/cmd/capi

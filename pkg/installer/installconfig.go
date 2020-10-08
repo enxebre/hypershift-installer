@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	capiv1 "github.com/openshift-hive/hypershift-installer/pkg/capi/api/v1alpha4"
+
 	gocidr "github.com/apparentlymart/go-cidr/cidr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -133,6 +135,17 @@ func (o *CreateInstallConfigOpts) Run() error {
 		}
 	}
 
+	hostedControlPlane := &capiv1.HostedControlPlane{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "HostedControlPlane",
+			APIVersion: capiv1.GroupVersion.String(),
+		},
+	}
+	hostedControlPlane.ObjectMeta.Name = o.Name
+	hostedControlPlane.Spec.PullSecret = pullSecret
+	hostedControlPlane.Spec.SSHKey = string(sshKey)
+	hostedControlPlane.Spec.BaseDomain = baseDomain
+
 	installConfig := &installertypes.InstallConfig{}
 	installConfig.ObjectMeta.Name = o.Name
 	installConfig.PullSecret = pullSecret
@@ -152,7 +165,20 @@ func (o *CreateInstallConfigOpts) Run() error {
 			IPNet: *clusterServiceCIDR,
 		},
 	}
+
+	networkingHCP := &capiv1.Networking{}
+	networkingHCP.NetworkType = "OpenShiftSDN"
+	networkingHCP.ClusterNetwork = []capiv1.ClusterNetworkEntry{
+		{
+			CIDR:       clusterPodCIDR.String(),
+			HostPrefix: 23,
+		},
+	}
+	networkingHCP.ServiceNetwork = []string{clusterServiceCIDR.String()}
+
 	installConfig.Networking = networking
+	hostedControlPlane.Spec.Networking = networkingHCP
+
 	var replicas int64 = 3
 	installConfig.Compute = []installertypes.MachinePool{
 		{
@@ -178,6 +204,20 @@ func (o *CreateInstallConfigOpts) Run() error {
 		}
 	}
 	installConfigFilePath := filepath.Join(o.Directory, installConfigFileName)
+
+	bHCP, err := yaml.Marshal(hostedControlPlane)
+	if err != nil {
+		return err
+	}
+	if len(o.Directory) > 0 {
+		if err = os.MkdirAll(o.Directory, 0755); err != nil {
+			return err
+		}
+	}
+	hostedControlPlaneFilePath := filepath.Join(o.Directory, "hostedControlPlane.yaml")
+	if err := ioutil.WriteFile(hostedControlPlaneFilePath, bHCP, 0644); err != nil {
+		return err
+	}
 	return ioutil.WriteFile(installConfigFilePath, b, 0644)
 }
 

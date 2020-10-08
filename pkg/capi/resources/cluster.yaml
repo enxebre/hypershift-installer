@@ -1,0 +1,46 @@
+apiVersion: cluster.x-k8s.io/v1alpha4
+kind: Cluster
+metadata:
+  name: test-cluster
+  namespace: cluster-farm
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 10.132.0.0/14
+  controlPlaneRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+    kind: HostedControlPlane
+    name: test-hosted-control-plane
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+    kind: GuestCluster
+    name: test-guest-cluster
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: GuestCluster
+metadata:
+  name: test-guest-cluster
+  namespace: cluster-farm
+spec:
+  initialReplicas: 2
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: HostedControlPlane
+metadata:
+  name: test-hosted-control-plane
+  namespace: cluster-farm
+spec:
+  baseDomain: agarcial250920.llc.devcluster.openshift.com
+  networking:
+    clusterNetwork:
+      - cidr: 10.132.0.0/14
+        hostPrefix: 23
+    networkType: OpenShiftSDN
+    serviceNetwork:
+      - 172.31.0.0/16
+  pullSecret: ''
+  sshKey: |
+    ssh-rsa asd
+status:
+  ready: false
